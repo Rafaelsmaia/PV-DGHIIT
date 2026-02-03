@@ -1,0 +1,55 @@
+==========================================
+  COMANDOS PARA DEPLOY NO VERCEL
+==========================================
+
+PASSO 1: Preparar o Git (Execute na pasta do projeto)
+-------------------------------------------------------
+git init
+git add .
+git commit -m "Página de vendas DG HIIT - Deploy inicial"
+
+
+PASSO 2: Criar Repositório no GitHub
+-------------------------------------------------------
+1. Acesse: https://github.com/new
+2. Dê um nome ao repositório (ex: dg-hiit-landing-page)
+3. NÃO marque "Initialize with README"
+4. Clique em "Create repository"
+
+
+PASSO 3: Conectar ao GitHub (Execute na pasta do projeto)
+-------------------------------------------------------
+Substitua SEU_USUARIO e SEU_REPOSITORIO pelos seus dados:
+
+git remote add origin https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
+git branch -M main
+git push -u origin main
+
+
+PASSO 4: Deploy no Vercel
+-------------------------------------------------------
+1. Acesse: https://vercel.com
+2. Faça login (pode usar sua conta GitHub)
+3. Clique em "Add New Project" ou "New Project"
+4. Importe o repositório que você criou
+5. Clique em "Deploy"
+6. Pronto! Sua página estará no ar em segundos!
+
+
+==========================================
+  ALTERNATIVA: Deploy via Vercel CLI
+==========================================
+
+npm install -g vercel
+vercel login
+vercel --prod
+
+
+==========================================
+  ARQUIVOS DE AJUDA
+==========================================
+
+- DEPLOY_VERCEL.md  → Guia completo e detalhado
+- QUICK_START.md    → Guia rápido (3 passos)
+- deploy.ps1        → Script PowerShell (Windows)
+- deploy.bat         → Script Batch (Windows)

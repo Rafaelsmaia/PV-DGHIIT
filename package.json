@@ -1,0 +1,15 @@
+{
+  "name": "dg-hiit-landing-page",
+  "version": "1.0.0",
+  "description": "Página de vendas DG HIIT",
+  "scripts": {
+    "build": "echo 'Build completo'"
+  },
+  "keywords": [
+    "landing-page",
+    "hiit",
+    "vendas"
+  ],
+  "author": "",
+  "license": "MIT"
+}
