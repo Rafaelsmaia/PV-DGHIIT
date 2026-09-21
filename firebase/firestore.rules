@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /leads/{leadId} {
+      allow create: if
+        request.resource.data.keys().hasAll(['nome', 'email', 'telefone', 'origem', 'pagina'])
+        && request.resource.data.nome is string
+        && request.resource.data.email is string
+        && request.resource.data.telefone is string
+        && request.resource.data.origem is string
+        && request.resource.data.pagina is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.nome.size() <= 120
+        && request.resource.data.email.size() > 0
+        && request.resource.data.email.size() <= 200
+        && request.resource.data.telefone.size() >= 10
+        && request.resource.data.telefone.size() <= 20;
+
+      allow read, update, delete: if false;
+    }
+  }
+}

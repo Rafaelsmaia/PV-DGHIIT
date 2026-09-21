@@ -1,16 +1,34 @@
 // Timer de Contagem Regressiva
+const FIREBASE_CONFIG = window.FIREBASE_CONFIG || {};
+const LEAD_STORAGE_KEY = 'dg-hiit-lead-captured';
+
+let firestoreDb = null;
+
+function initFirebase() {
+    if (!FIREBASE_CONFIG.apiKey || typeof firebase === 'undefined') {
+        console.warn('Firebase não configurado — leads não serão salvos.');
+        return;
+    }
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+    }
+
+    firestoreDb = firebase.firestore();
+}
+
 function initTimer() {
-    // Define o tempo final (24 horas a partir de agora)
-    const endTime = new Date().getTime() + (24 * 60 * 60 * 1000);
+    // Define o tempo final (10 minutos a partir de agora)
+    let endTime = new Date().getTime() + (10 * 60 * 1000);
     
     function updateTimer() {
         const now = new Date().getTime();
-        const distance = endTime - now;
+        let distance = endTime - now;
         
         if (distance < 0) {
-            // Se o tempo acabou, reseta para mais 24 horas
-            endTime = new Date().getTime() + (24 * 60 * 60 * 1000);
-            return;
+            // Se o tempo acabou, reseta para mais 10 minutos
+            endTime = new Date().getTime() + (10 * 60 * 1000);
+            distance = endTime - now;
         }
         
         const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -30,27 +48,6 @@ function initTimer() {
     // Atualiza o timer a cada segundo
     updateTimer();
     setInterval(updateTimer, 1000);
-}
-
-// FAQ Accordion
-function initFAQ() {
-    const faqItems = document.querySelectorAll('.faq-item');
-    
-    faqItems.forEach(item => {
-        const question = item.querySelector('.faq-question');
-        
-        question.addEventListener('click', () => {
-            // Fecha outros itens abertos
-            faqItems.forEach(otherItem => {
-                if (otherItem !== item && otherItem.classList.contains('active')) {
-                    otherItem.classList.remove('active');
-                }
-            });
-            
-            // Toggle do item atual
-            item.classList.toggle('active');
-        });
-    });
 }
 
 // Scroll Reveal Animation
@@ -91,34 +88,165 @@ function initSmoothScroll() {
     });
 }
 
-// Botão de Compra - Tracking
-function initPurchaseButton() {
-    const purchaseButton = document.getElementById('btn-comprar');
-    
-    if (purchaseButton) {
-        purchaseButton.addEventListener('click', function(e) {
-            // Aqui você pode adicionar tracking do Google Analytics, Facebook Pixel, etc.
-            console.log('Botão de compra clicado');
-            
-            // Exemplo de tracking (descomente e configure conforme necessário):
-            /*
-            if (typeof gtag !== 'undefined') {
-                gtag('event', 'conversion', {
-                    'send_to': 'AW-CONVERSION_ID/CONVERSION_LABEL',
-                    'value': 197.00,
-                    'currency': 'BRL'
-                });
+// Captura de leads antes do checkout
+function initLeadCapture() {
+    const modal = document.getElementById('lead-modal');
+    const form = document.getElementById('lead-form');
+    const errorEl = document.getElementById('lead-form-error');
+    const submitBtn = document.getElementById('lead-form-submit');
+    const phoneInput = document.getElementById('lead-telefone');
+
+    if (!modal || !form) return;
+
+    let pendingCheckoutUrl = '';
+
+    function formatPhone(value) {
+        const digits = value.replace(/\D/g, '').slice(0, 11);
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+        if (digits.length <= 10) {
+            return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+        }
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    }
+
+    function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    function isValidPhone(phone) {
+        return phone.replace(/\D/g, '').length >= 10;
+    }
+
+    function openModal(checkoutUrl) {
+        pendingCheckoutUrl = checkoutUrl;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('lead-modal-open');
+
+        const firstInput = form.querySelector('input');
+        if (firstInput) {
+            window.setTimeout(() => firstInput.focus(), 100);
+        }
+    }
+
+    function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('lead-modal-open');
+        pendingCheckoutUrl = '';
+        errorEl.hidden = true;
+        errorEl.textContent = '';
+    }
+
+    function goToCheckout(url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    async function sendLead(data) {
+        if (!firestoreDb) {
+            console.warn('Firebase não configurado — lead não enviado:', data);
+            return true;
+        }
+
+        await firestoreDb.collection('leads').add({
+            nome: data.nome,
+            email: data.email,
+            telefone: data.telefone,
+            origem: 'DG HIIT Landing Page',
+            pagina: window.location.href,
+            criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        return true;
+    }
+
+    document.querySelectorAll('.js-checkout').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const checkoutUrl = this.getAttribute('href');
+            if (!checkoutUrl) return;
+
+            if (sessionStorage.getItem(LEAD_STORAGE_KEY) === 'true') {
+                goToCheckout(checkoutUrl);
+                return;
             }
-            
-            if (typeof fbq !== 'undefined') {
-                fbq('track', 'InitiateCheckout', {
-                    value: 197.00,
-                    currency: 'BRL'
-                });
-            }
-            */
+
+            openModal(checkoutUrl);
+        });
+    });
+
+    modal.querySelectorAll('[data-lead-close]').forEach(el => {
+        el.addEventListener('click', closeModal);
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) {
+            closeModal();
+        }
+    });
+
+    if (phoneInput) {
+        phoneInput.addEventListener('input', () => {
+            phoneInput.value = formatPhone(phoneInput.value);
         });
     }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        errorEl.hidden = true;
+        errorEl.textContent = '';
+
+        const nome = form.nome.value.trim();
+        const email = form.email.value.trim();
+        const telefone = form.telefone.value.trim();
+
+        form.querySelectorAll('input').forEach(input => input.classList.remove('error'));
+
+        if (!nome || !email || !telefone) {
+            errorEl.textContent = 'Preencha todos os campos para continuar.';
+            errorEl.hidden = false;
+            form.querySelectorAll('input').forEach(input => {
+                if (!input.value.trim()) input.classList.add('error');
+            });
+            return;
+        }
+
+        if (!isValidEmail(email)) {
+            errorEl.textContent = 'Informe um e-mail válido.';
+            errorEl.hidden = false;
+            form.email.classList.add('error');
+            return;
+        }
+
+        if (!isValidPhone(telefone)) {
+            errorEl.textContent = 'Informe um WhatsApp válido com DDD.';
+            errorEl.hidden = false;
+            form.telefone.classList.add('error');
+            return;
+        }
+
+        const checkoutUrl = pendingCheckoutUrl;
+        if (!checkoutUrl) return;
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enviando...';
+
+        try {
+            await sendLead({ nome, email, telefone });
+            sessionStorage.setItem(LEAD_STORAGE_KEY, 'true');
+            closeModal();
+            goToCheckout(checkoutUrl);
+        } catch (err) {
+            console.error(err);
+            errorEl.textContent = 'Não foi possível enviar seus dados. Tente novamente.';
+            errorEl.hidden = false;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Continuar para o checkout';
+        }
+    });
 }
 
 // Animação de Números (contador)
@@ -224,7 +352,7 @@ function initBackToTop() {
     backToTopButton.className = 'back-to-top';
     backToTopButton.style.cssText = `
         position: fixed;
-        bottom: 30px;
+        bottom: 100px;
         right: 30px;
         width: 50px;
         height: 50px;
@@ -265,11 +393,11 @@ function initBackToTop() {
 
 // Inicialização quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', function() {
+    initFirebase();
     initTimer();
-    initFAQ();
     initScrollReveal();
     initSmoothScroll();
-    initPurchaseButton();
+    initLeadCapture();
     initScrollEffects();
     initBackToTop();
     

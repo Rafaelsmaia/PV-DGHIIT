@@ -2,6 +2,10 @@
   "name": "dg-hiit-landing-page",
   "version": "1.0.0",
   "scripts": {
-    "dev": "npx serve . -l 3000"
+    "build": "node build.mjs",
+    "dev": "npx serve . -l 3000",
+    "start": "npx serve dist -l 3000",
+    "deploy": "npx vercel --prod",
+    "deploy:preview": "npx vercel"
   }
 }

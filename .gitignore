@@ -12,6 +12,8 @@ build
 .env
 .env.local
 .env.production
+.env*.local
+firebase-config.js
 
 # IDE
 .vscode/
@@ -23,3 +25,4 @@ build
 # OS
 .DS_Store
 Thumbs.db
+.env*.local
